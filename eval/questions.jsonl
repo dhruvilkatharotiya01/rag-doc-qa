@@ -1,0 +1,19 @@
+# question, expected source file (null = should abstain), keywords expected in the answer
+{"question": "What does Soft Actor-Critic maximise in addition to the expected return?", "source": "soft_actor_critic.md", "keywords": ["entropy"]}
+{"question": "Why does SAC use two Q-functions?", "source": "soft_actor_critic.md", "keywords": ["overestimation", "minimum"]}
+{"question": "What does the temperature parameter alpha control in SAC?", "source": "soft_actor_critic.md", "keywords": ["trade-off", "entropy", "exploration"]}
+{"question": "Why is SAC more sample-efficient than PPO?", "source": "soft_actor_critic.md", "keywords": ["replay buffer", "off-policy"]}
+{"question": "What does the length-scale of an RBF kernel control?", "source": "gaussian_processes.md", "keywords": ["correlation", "distance"]}
+{"question": "What does Gaussian Process Regression return for a new input?", "source": "gaussian_processes.md", "keywords": ["mean", "variance"]}
+{"question": "How are GP kernel hyperparameters usually fitted?", "source": "gaussian_processes.md", "keywords": ["marginal likelihood"]}
+{"question": "Why do Gaussian processes scale poorly to large datasets?", "source": "gaussian_processes.md", "keywords": ["cubically", "inverting", "inducing"]}
+{"question": "When is A* guaranteed to find the shortest path?", "source": "motion_planning.md", "keywords": ["admissible"]}
+{"question": "What is the difference between RRT and RRT*?", "source": "motion_planning.md", "keywords": ["rewiring", "optimal"]}
+{"question": "Which planner builds a reusable roadmap for many queries?", "source": "motion_planning.md", "keywords": ["PRM", "roadmap"]}
+{"question": "Why should grasp selection consider path planning?", "source": "motion_planning.md", "keywords": ["unreachable", "feasibility", "awkward"]}
+{"question": "Which polynomial matches position, velocity and acceleration at both ends of a lane change?", "source": "lane_change.md", "keywords": ["quintic"]}
+{"question": "What is time-to-collision?", "source": "lane_change.md", "keywords": ["time until", "current speed"]}
+{"question": "How does the decision layer avoid oscillating between lanes?", "source": "lane_change.md", "keywords": ["hysteresis", "threshold"]}
+{"question": "What is the capital of Australia?", "source": null, "keywords": []}
+{"question": "Who won the 2018 football world cup?", "source": null, "keywords": []}
+{"question": "How do I bake sourdough bread?", "source": null, "keywords": []}

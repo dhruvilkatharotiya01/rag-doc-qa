@@ -1,0 +1,9 @@
+[project]
+name = "ragqa"
+version = "0.1.0"
+description = "A small, transparent retrieval-augmented question answering system with built-in evaluation"
+requires-python = ">=3.10"
+readme = "README.md"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
