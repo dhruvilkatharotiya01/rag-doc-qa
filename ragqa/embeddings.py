@@ -6,11 +6,15 @@
              semantic matching; requires ``pip install sentence-transformers``.
 
 Both return L2-normalised vectors so cosine similarity is a dot product.
+
+Note: the fitted TF-IDF vectoriser is stored with ``pickle``. Only load index
+directories you created yourself; unpickling untrusted data can run code.
 """
+
 from __future__ import annotations
 
 import pickle
-from typing import List, Protocol
+from typing import Protocol
 
 import numpy as np
 
@@ -18,9 +22,9 @@ import numpy as np
 class Embedder(Protocol):
     name: str
 
-    def fit(self, texts: List[str]) -> "Embedder": ...
+    def fit(self, texts: list[str]) -> Embedder: ...
 
-    def embed(self, texts: List[str]) -> np.ndarray: ...
+    def embed(self, texts: list[str]) -> np.ndarray: ...
 
     def dumps(self) -> bytes: ...
 
@@ -46,12 +50,12 @@ class TfidfEmbedder:
         )
         self._fitted = False
 
-    def fit(self, texts: List[str]) -> "TfidfEmbedder":
+    def fit(self, texts: list[str]) -> TfidfEmbedder:
         self._vectorizer.fit(texts)
         self._fitted = True
         return self
 
-    def embed(self, texts: List[str]) -> np.ndarray:
+    def embed(self, texts: list[str]) -> np.ndarray:
         if not self._fitted:
             raise RuntimeError("TfidfEmbedder must be fitted before embedding")
         matrix = self._vectorizer.transform(texts).toarray().astype(np.float32)
@@ -61,7 +65,7 @@ class TfidfEmbedder:
         return pickle.dumps(self._vectorizer)
 
     @classmethod
-    def loads(cls, blob: bytes) -> "TfidfEmbedder":
+    def loads(cls, blob: bytes) -> TfidfEmbedder:
         obj = cls.__new__(cls)
         obj._vectorizer = pickle.loads(blob)
         obj._fitted = True
@@ -79,10 +83,10 @@ class SbertEmbedder:
         self.model_name = model_name
         self._model = SentenceTransformer(model_name)
 
-    def fit(self, texts: List[str]) -> "SbertEmbedder":
+    def fit(self, texts: list[str]) -> SbertEmbedder:
         return self  # pre-trained, nothing to fit
 
-    def embed(self, texts: List[str]) -> np.ndarray:
+    def embed(self, texts: list[str]) -> np.ndarray:
         vectors = self._model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
         return _l2_normalise(vectors.astype(np.float32))
 
@@ -90,7 +94,7 @@ class SbertEmbedder:
         return self.model_name.encode("utf-8")
 
     @classmethod
-    def loads(cls, blob: bytes) -> "SbertEmbedder":
+    def loads(cls, blob: bytes) -> SbertEmbedder:
         return cls(blob.decode("utf-8"))
 
 

@@ -4,8 +4,5 @@ pypdf>=3.17
 fastapi>=0.110
 uvicorn>=0.29
 pydantic>=2.5
-# development
-pytest>=8.0
-httpx>=0.27
-# optional: dense embeddings (`--embedder sbert`)
+# optional: dense embeddings (`ragqa ingest --embedder sbert`)
 # sentence-transformers>=2.7

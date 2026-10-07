@@ -9,6 +9,7 @@
 
 Only the standard library is used for HTTP to keep dependencies small.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,98 +17,124 @@ import math
 import os
 import re
 import urllib.request
-from typing import List, Protocol
+from typing import Protocol
+
+from .text import content_tokens
+
+NO_ANSWER = "I don't know based on the provided documents."
 
 SYSTEM_PROMPT = (
     "You answer questions using ONLY the numbered context passages. "
     "Cite every claim with the passage number in square brackets, e.g. [2]. "
     "If the context does not contain the answer, reply exactly: "
-    "\"I don't know based on the provided documents.\""
+    f'"{NO_ANSWER}"'
 )
 
 
 class LLM(Protocol):
     name: str
 
-    def generate(self, question: str, contexts: List[str]) -> str: ...
+    def generate(self, question: str, contexts: list[str]) -> str: ...
 
 
-def build_user_prompt(question: str, contexts: List[str]) -> str:
+def build_user_prompt(question: str, contexts: list[str]) -> str:
     numbered = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(contexts))
     return f"Context:\n{numbered}\n\nQuestion: {question}\nAnswer:"
 
 
-_WORD = re.compile(r"[a-zA-Z0-9äöüÄÖÜß]+")
-_STOP = {
-    "the", "a", "an", "is", "are", "of", "to", "in", "and", "or", "what", "which", "how",
-    "does", "do", "for", "on", "with", "by", "be", "it", "this", "that", "as", "at", "why",
-    "who", "i", "my", "me", "you", "your", "can", "should", "when", "where", "did", "was",
-    "between", "difference", "about", "there", "their", "its", "than", "then",
-}
-
-
-def _stem(word: str) -> str:
-    """Very light suffix stripping so 'maximises'/'maximise' or 'planners'/'planner' match."""
-    for suffix in ("ing", "es", "ed", "s", "e"):
-        if len(word) > 4 and word.endswith(suffix):
-            return word[: -len(suffix)]
-    return word
-
-
-def content_tokens(text: str) -> set[str]:
-    """Lower-cased, lightly stemmed content words (stop words removed)."""
-    return {_stem(w.lower()) for w in _WORD.findall(text) if w.lower() not in _STOP}
-
-
-_tokens = content_tokens
+_ANAPHORA = re.compile(r"^(This|These|That|Those|It|Such|Thus|Therefore)\b")
 
 
 class ExtractiveLLM:
-    """Picks the best-matching sentences from the context. No model needed."""
+    """Answers with the best-matching sentences from the context. No model needed.
+
+    Sentences are scored by IDF-weighted overlap with the question, with a small
+    preference for higher-ranked passages. Two discourse rules keep answers
+    readable: a sentence that opens with a reference ("This makes it ...") is
+    preceded by the sentence it refers to, and for "why" questions the sentence
+    after the best match is added, because explanations usually follow the claim.
+    """
 
     name = "extractive"
 
-    def __init__(self, max_sentences: int = 2) -> None:
+    def __init__(self, max_sentences: int = 2, min_relative_score: float = 0.5) -> None:
         self.max_sentences = max_sentences
+        self.min_relative_score = min_relative_score  # extra sentences must score >= this x best
 
-    def generate(self, question: str, contexts: List[str]) -> str:
-        q = _tokens(question)
-        candidates, seen = [], set()
+    @staticmethod
+    def _sentences(contexts: list[str]) -> list[tuple[int, list[str]]]:
+        """Split each passage into sentences, dropping ones already seen in a higher-ranked passage."""
+        seen: set[str] = set()
+        out = []
         for ci, ctx in enumerate(contexts):
-            for sent in re.split(r"(?<=[.!?])\s+", ctx):
-                sent = sent.strip()
+            kept = []
+            for sent in re.split(r"(?<=[.!?])\s+", ctx.strip()):
                 key = sent.lower()
-                # overlapping chunks repeat (possibly truncated) sentences; titles are too short to answer
-                if len(sent.split()) < 5 or any(key in s or s in key for s in seen):
-                    continue
-                seen.add(key)
-                candidates.append((ci, sent, _tokens(sent)))
+                if sent and key not in seen:
+                    seen.add(key)
+                    kept.append(sent)
+            out.append((ci, kept))
+        return out
+
+    def generate(self, question: str, contexts: list[str]) -> str:
+        q = content_tokens(question)
+        passages = self._sentences(contexts)
+        # (passage index, sentence index, sentence, tokens); titles are too short to answer
+        candidates = [
+            (ci, si, s, content_tokens(s))
+            for ci, sents in passages
+            for si, s in enumerate(sents)
+            if len(s.split()) >= 5
+        ]
         if not candidates:
-            return "I don't know based on the provided documents."
+            return NO_ANSWER
 
         # IDF over candidate sentences: words that appear everywhere (e.g. the topic name)
         # say little about which sentence actually answers the question.
         n = len(candidates)
         df: dict[str, int] = {}
-        for _, _, toks in candidates:
+        for *_, toks in candidates:
             for t in toks:
                 df[t] = df.get(t, 0) + 1
         scored = []
-        for ci, sent, toks in candidates:
-            score = sum(math.log(1 + n / df[t]) for t in q & toks)
-            score /= 1 + 0.25 * ci  # prefer sentences from higher-ranked chunks
+        for ci, si, _, toks in candidates:
+            score = sum(math.log(1 + n / df[t]) for t in q & toks) / (1 + 0.25 * ci)
             if score > 0:
-                scored.append((score, -ci, sent, ci))
+                scored.append((score, -ci, -si, ci, si))
         if not scored:
-            return "I don't know based on the provided documents."
+            return NO_ANSWER
         scored.sort(reverse=True)
-        picked = scored[: self.max_sentences]
-        return " ".join(f"{s} [{ci + 1}]" for _, _, s, ci in picked)
+
+        is_why = bool(re.match(r"\s*why\b", question, re.IGNORECASE))
+        picked: list[tuple[int, int]] = []
+
+        def add(ci: int, si: int) -> None:
+            if (ci, si) not in picked:
+                picked.append((ci, si))
+
+        best = scored[0][0]
+        for score, *_, ci, si in scored:
+            if len(picked) >= self.max_sentences or score < self.min_relative_score * best:
+                break
+            sents = passages[ci][1]
+            if si > 0 and _ANAPHORA.match(sents[si]):
+                add(ci, si - 1)
+            add(ci, si)
+            if is_why and si + 1 < len(sents):
+                add(ci, si + 1)
+        # passages in order of their best sentence, sentences in reading order within a passage
+        first = {}
+        for i, (ci, _) in enumerate(picked):
+            first.setdefault(ci, i)
+        picked.sort(key=lambda p: (first[p[0]], p[1]))
+        return " ".join(f"{passages[ci][1][si]} [{ci + 1}]" for ci, si in picked)
 
 
 def _post_json(url: str, payload: dict, headers: dict | None = None, timeout: int = 120) -> dict:
     data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json", **(headers or {})})
+    req = urllib.request.Request(
+        url, data=data, headers={"Content-Type": "application/json", **(headers or {})}
+    )
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - user-configured endpoint
         return json.loads(resp.read().decode("utf-8"))
 
@@ -119,7 +146,7 @@ class OllamaLLM:
         self.model = model or os.getenv("OLLAMA_MODEL", "llama3.2:3b")
         self.host = (host or os.getenv("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
 
-    def generate(self, question: str, contexts: List[str]) -> str:
+    def generate(self, question: str, contexts: list[str]) -> str:
         out = _post_json(
             f"{self.host}/api/chat",
             {
@@ -145,7 +172,7 @@ class OpenAICompatLLM:
         if not self.api_key:
             raise RuntimeError("Set OPENAI_API_KEY to use the 'openai' backend")
 
-    def generate(self, question: str, contexts: List[str]) -> str:
+    def generate(self, question: str, contexts: list[str]) -> str:
         out = _post_json(
             f"{self.base_url}/chat/completions",
             {

@@ -17,3 +17,22 @@
 {"question": "What is the capital of Australia?", "source": null, "keywords": []}
 {"question": "Who won the 2018 football world cup?", "source": null, "keywords": []}
 {"question": "How do I bake sourdough bread?", "source": null, "keywords": []}
+{"question": "What does the Kalman gain decide?", "source": "kalman_filter.md", "keywords": ["trust the measurement"]}
+{"question": "What happens if the process noise covariance Q is chosen too small?", "source": "kalman_filter.md", "keywords": ["overconfident"]}
+{"question": "How does the Unscented Kalman Filter handle nonlinear models?", "source": "kalman_filter.md", "keywords": ["sigma points"]}
+{"question": "Which sensors can be fused to localise a vehicle?", "source": "kalman_filter.md", "keywords": ["odometry", "inertial", "GNSS"]}
+{"question": "Why does PPO clip the probability ratio?", "source": "ppo.md", "keywords": ["destructive", "far away", "incentive"]}
+{"question": "What does the lambda parameter in GAE trade off?", "source": "ppo.md", "keywords": ["bias", "variance"]}
+{"question": "Why does PPO need many environment interactions?", "source": "ppo.md", "keywords": ["discards data"]}
+{"question": "When should a ROS 2 action be used instead of a service?", "source": "ros2.md", "keywords": ["long-running", "feedback", "cancel"]}
+{"question": "How do ROS 2 nodes discover each other without a master?", "source": "ros2.md", "keywords": ["DDS"]}
+{"question": "Which QoS setting suits high-rate sensor data?", "source": "ros2.md", "keywords": ["best-effort"]}
+{"question": "What does the tf2 library keep track of?", "source": "ros2.md", "keywords": ["coordinate frames"]}
+{"question": "Why is the KUKA LBR iiwa called a redundant robot?", "source": "inverse_kinematics.md", "keywords": ["one more joint", "seven", "null space"]}
+{"question": "What goes wrong near a kinematic singularity?", "source": "inverse_kinematics.md", "keywords": ["loses rank", "very large"]}
+{"question": "Which method keeps numerical IK stable near singularities?", "source": "inverse_kinematics.md", "keywords": ["damped least squares"]}
+{"question": "How can I tell how confident a GP prediction is?", "source": "gaussian_processes.md", "keywords": ["variance", "uncertain"]}
+{"question": "Which algorithm stops the policy from changing too much in one update?", "source": "ppo.md", "keywords": ["clip", "small"]}
+{"question": "How is a smooth, comfortable sideways manoeuvre planned for a car?", "source": "lane_change.md", "keywords": ["quintic", "polynomial"]}
+{"question": "What is the best recipe for chocolate cake?", "source": null, "keywords": []}
+{"question": "How many moons does Jupiter have?", "source": null, "keywords": []}
